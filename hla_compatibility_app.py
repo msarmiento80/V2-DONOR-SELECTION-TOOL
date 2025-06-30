@@ -125,4 +125,3 @@ pdf_tabla_path = f"/tmp/tabla_inmunogenetica.png"
 plt.savefig(pdf_tabla_path, bbox_inches='tight')
 plt.close()
 
-# Aquí se integrará el ingreso de múltiples pacientes y PDF obligatorio
