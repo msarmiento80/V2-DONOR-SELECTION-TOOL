@@ -158,7 +158,7 @@ for r in resultados:
 
 {T('Prioridad del Donante', 'Donor Priority')}: {r['Prioridad']}
 {T('Recomendación Clínica', 'Clinical Recommendation')}: {r['Recomendación']}
-    ")
+""")
 
 path = f"/tmp/informe_HLA_multi_{fecha}.pdf"
 pdf.output(path)
@@ -166,3 +166,4 @@ with open(path, "rb") as f:
     b64 = base64.b64encode(f.read()).decode()
     href = f'<a href="data:application/octet-stream;base64,{b64}" download="informe_HLA_multipaciente_{fecha}.pdf">📥 {T("Descargar PDF", "Download PDF")}</a>'
     st.markdown(href, unsafe_allow_html=True)
+
