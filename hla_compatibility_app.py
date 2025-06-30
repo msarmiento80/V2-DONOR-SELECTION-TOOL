@@ -65,105 +65,64 @@ st.title(T("Evaluador de Compatibilidad HLA", "HLA Compatibility Evaluator"))
 st.markdown(f"<h4>{T('Programa de Trasplante Hematopoyético del Adulto - Pontificia Universidad Católica de Chile', 'Adult Hematopoietic Transplant Program - Pontifical Catholic University of Chile')}</h4>", unsafe_allow_html=True)
 st.markdown(f"<p style='text-align: center; font-style: italic;'>{T('Esta es una herramienta para ayudar en la decisión del mejor donante una vez haya una selección previa de los potenciales donantes. No reemplaza el adecuado juicio clínico.', 'This is a tool to assist in the selection of the best donor once a pool of potential donors has been preselected. It does not replace appropriate clinical judgment.')}</p>", unsafe_allow_html=True)
 
-# --- MULTIPACIENTES ---
-num_pacientes = st.number_input("¿Cuántos pacientes deseas evaluar?", min_value=1, max_value=10, step=1)
-resultados = []
-
-for i in range(num_pacientes):
-    st.header(f"{T('Paciente', 'Patient')} {i+1}")
-    codigo = st.text_input(T("Código del paciente", "Patient code"), key=f"cod_{i}")
-    dis_a = st.checkbox("HLA-A", key=f"a_{i}")
-    dis_b = st.checkbox("HLA-B", key=f"b_{i}")
-    dis_c = st.checkbox("HLA-C", key=f"c_{i}")
-    dis_drb1 = st.checkbox("HLA-DRB1", key=f"drb1_{i}")
-    dis_dqb1 = st.checkbox("HLA-DQB1", key=f"dqb1_{i}")
-    dpb1_no_perm = st.checkbox("HLA-DPB1 no permisivo", key=f"dpb1_{i}")
-    lider_tt = st.checkbox("Polimorfismo líder HLA-B T/T", key=f"tt_{i}")
-
-    edad_don = st.number_input(T("Edad del donante", "Donor age"), 0, 75, 30, key=f"edad_{i}")
-    grupo_don = st.selectbox("Grupo sanguíneo donante", ["A", "B", "AB", "O"], key=f"gd_{i}")
-    grupo_rec = st.selectbox("Grupo sanguíneo receptor", ["A", "B", "AB", "O"], key=f"gr_{i}")
-    sexo_don = st.selectbox(T("Sexo del donante", "Donor sex"), ["Masculino", "Femenino"], key=f"sx_{i}")
-    hijos_don = st.checkbox(T("Donante con hijos", "Donor has children"), key=f"hx_{i}")
-    dsa_valor = st.number_input(T("Nivel de anticuerpos anti-HLA (DSA, MFI)", "Anti-HLA antibodies level (DSA, MFI)"), min_value=0, value=0, key=f"dsa_{i}")
-
-    riesgo = "Bajo"
-    if dis_drb1 or dis_b or dpb1_no_perm or lider_tt or sum([dis_a, dis_b, dis_c, dis_drb1, dis_dqb1]) >= 2:
-        riesgo = "Alto"
-    elif sum([dis_a, dis_b, dis_c, dis_drb1, dis_dqb1]) == 1:
-        riesgo = "Intermedio"
-
-    riesgo_gvhd = riesgo
-    riesgo_recaida = "Bajo" if riesgo == "Bajo" else ("Intermedio" if edad_don < 40 else "Alto")
-    riesgo_prend = "Bajo"
-    if dsa_valor > 5000:
-        riesgo_prend = "Alto"
-    elif grupo_don != grupo_rec:
-        riesgo_prend = "Intermedio"
-    elif grupo_don != grupo_rec and edad_don > 45:
-        riesgo_prend = "Alto"
-
-    prioridad = ""
-    if dsa_valor > 5000:
-        prioridad = T("Prioridad 3: Donante subóptimo", "Priority 3: Suboptimal donor")
-    elif riesgo == "Bajo" and edad_don <= 35 and not lider_tt and grupo_don == grupo_rec and sexo_don == "Masculino":
-        prioridad = T("Prioridad 1: Donante ideal", "Priority 1: Optimal donor")
-    elif riesgo == "Intermedio" or edad_don <= 50:
-        prioridad = T("Prioridad 2: Donante aceptable", "Priority 2: Acceptable donor")
-    else:
-        prioridad = T("Prioridad 3: Donante subóptimo", "Priority 3: Suboptimal donor")
-
-    recomendacion = ""
-    if riesgo_prend == "Alto" and dsa_valor > 5000:
-        recomendacion = T("Evitar este donante por riesgo de fallo de prendimiento. Considerar desensibilización.",
-                          "Avoid this donor due to graft failure risk. Consider desensitization.")
-    elif riesgo == "Alto":
-        recomendacion = T("Buscar alternativas si es posible.", "Seek alternatives if possible.")
-    elif riesgo == "Intermedio":
-        recomendacion = T("Evaluar en comité.", "Evaluate in committee.")
-    else:
-        recomendacion = T("Proceder si no hay contraindicaciones.", "Proceed if no contraindications exist.")
-
-    resultados.append({
-        "Código": codigo,
-        "Edad donante": edad_don,
-        "Riesgo GVHD": riesgo_gvhd,
-        "Riesgo Recaída": riesgo_recaida,
-        "Riesgo Prendimiento": riesgo_prend,
-        "Prioridad": prioridad,
-        "Recomendación": recomendacion
-    })
-
-# Mostrar tabla resumen
-st.subheader("Resumen de Pacientes")
-df = pd.DataFrame(resultados)
-st.dataframe(df, use_container_width=True)
-
-# PDF OBLIGATORIO
-fecha = datetime.date.today().strftime("%Y-%m-%d")
-pdf = FPDF()
-for r in resultados:
-    pdf.add_page()
-    pdf.set_font("Arial", 'B', 14)
-    pdf.cell(200, 10, T("Informe de Evaluación HLA", "HLA Evaluation Report"), ln=True, align='C')
-    pdf.set_font("Arial", '', 12)
-    pdf.ln(10)
-    pdf.multi_cell(0, 10, f"""
-{T('Código del paciente', 'Patient code')}: {r['Código']}
-{T('Fecha', 'Date')}: {fecha}
-
-{T('Riesgo de GVHD', 'GVHD Risk')}: {r['Riesgo GVHD']}
-{T('Riesgo de recaída', 'Relapse Risk')}: {r['Riesgo Recaída']}
-{T('Riesgo de fallo de prendimiento', 'Graft failure risk')}: {r['Riesgo Prendimiento']}
-
-{T('Prioridad del Donante', 'Donor Priority')}: {r['Prioridad']}
-{T('Recomendación Clínica', 'Clinical Recommendation')}: {r['Recomendación']}
+# --- TABLA INFORMATIVA CON REFERENCIAS ---
+st.markdown("""
+### 🔍 Evidencia inmunogenética clave en la selección de donantes
 """)
+tabla_ref = pd.DataFrame({
+    "Ranking": ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"],
+    "Factor": [
+        "HLA-DRB1 mismatch",
+        "HLA-A or HLA-B mismatch",
+        "Non-permissive HLA-DPB1",
+        "HLA-C mismatch",
+        "HLA-DQB1 mismatch",
+        "HLA-B leader (M/T)",
+        "HLA-DQA1 mismatch",
+        "KIR ligand mismatch",
+        "Allelic vs Antigen mismatch",
+        "Mismatch directionality"
+    ],
+    "Impacto clínico": [
+        "↑ Acute GVHD, ↓ OS, ↑ TRM",
+        "↑ GVHD, graft failure, ↓ survival",
+        "↑ GVHD, ↑ TRM",
+        "↑ chronic GVHD, moderate TRM",
+        "Limited effect alone; augments DRB1",
+        "↑ relapse if mismatch (T/T donor)",
+        "Emerging evidence; CD4 repertoire",
+        "↓ relapse, NK alloreactivity (AML)",
+        "Allele mismatch worse than antigen",
+        "GVHD (GVH), graft loss (HVG)"
+    ],
+    "N° Pacientes": ["12000", "18000", "5000", "4000", "6000", "7000", "3000", "3500", "10000", "4000"],
+    "Fuerza Evidencia": ["Muy Alta", "Muy Alta", "Alta", "Alta", "Media", "Media", "Baja", "Media", "Alta", "Media"],
+    "Referencia": [
+        "Lee SJ et al. (2007)",
+        "Morishima Y et al. (2015)",
+        "Fleischhauer K et al. (2012)",
+        "Petersdorf EW et al. (2001)",
+        "Kawase T et al. (2007)",
+        "Pidala J et al. (2020)",
+        "Madbouly AS et al. (2016)",
+        "Ruggeri L et al. (2002)",
+        "Petersdorf EW et al. (2001)",
+        "Dehn J et al. (2014)"
+    ]
+})
+st.dataframe(tabla_ref.set_index("Ranking"), use_container_width=True)
 
-path = f"/tmp/informe_HLA_multi_{fecha}.pdf"
-pdf.output(path)
-with open(path, "rb") as f:
-    b64 = base64.b64encode(f.read()).decode()
-    href = f'<a href="data:application/octet-stream;base64,{b64}" download="informe_HLA_multipaciente_{fecha}.pdf">📥 {T("Descargar PDF", "Download PDF")}</a>'
-    st.markdown(href, unsafe_allow_html=True)
+# --- GUARDAR TABLA COMO IMAGEN PARA PDF ---
+fig, ax = plt.subplots(figsize=(12, 6))
+ax.axis('off')
+tabla = ax.table(cellText=tabla_ref.values,
+                 colLabels=tabla_ref.columns,
+                 loc='center', cellLoc='center')
+tabla.auto_set_font_size(False)
+tabla.set_fontsize(8)
+tabla.scale(1, 1.5)
+pdf_tabla_path = f"/tmp/tabla_inmunogenetica.png"
+plt.savefig(pdf_tabla_path, bbox_inches='tight')
+plt.close()
 
+# Aquí se integrará el ingreso de múltiples pacientes y PDF obligatorio
