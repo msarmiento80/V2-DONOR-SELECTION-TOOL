@@ -66,9 +66,8 @@ st.markdown(f"<h4>{T('Programa de Trasplante Hematopoyético del Adulto - Pontif
 st.markdown(f"<p style='text-align: center; font-style: italic;'>{T('Esta es una herramienta para ayudar en la decisión del mejor donante una vez haya una selección previa de los potenciales donantes. No reemplaza el adecuado juicio clínico.', 'This is a tool to assist in the selection of the best donor once a pool of potential donors has been preselected. It does not replace appropriate clinical judgment.')}</p>", unsafe_allow_html=True)
 
 # --- TABLA INFORMATIVA CON REFERENCIAS ---
-st.markdown("""
-### 🔍 Evidencia inmunogenética clave en la selección de donantes
-""")
+st.markdown("### 🔍 Evidencia inmunogenética clave en la selección de donantes")
+
 tabla_ref = pd.DataFrame({
     "Ranking": ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"],
     "Factor": [
@@ -125,3 +124,43 @@ pdf_tabla_path = f"/tmp/tabla_inmunogenetica.png"
 plt.savefig(pdf_tabla_path, bbox_inches='tight')
 plt.close()
 
+# --- PLACEHOLDER PARA LÓGICA DE MÚLTIPLES PACIENTES Y PDF OBLIGATORIO ---
+st.markdown("\n---\n")
+st.markdown("### 🧾 Evaluación de pacientes")
+
+num_pacientes = st.number_input("Cantidad de pacientes a ingresar:", min_value=1, value=1)
+pacientes = []
+
+for i in range(num_pacientes):
+    st.markdown(f"#### Paciente {i+1}")
+    codigo = st.text_input(f"Código del paciente {i+1}", key=f"codigo_{i}")
+    edad_don = st.number_input(f"Edad del donante (Paciente {i+1})", min_value=0, max_value=100, key=f"edad_{i}")
+    dsa_valor = st.number_input(f"Nivel de DSA (MFI) (Paciente {i+1})", min_value=0, key=f"dsa_{i}")
+    riesgo = "Alto" if dsa_valor > 5000 else ("Intermedio" if dsa_valor > 2000 else "Bajo")
+    prioridad = "Prioridad 1" if riesgo == "Bajo" and edad_don < 35 else ("Prioridad 2" if riesgo == "Intermedio" else "Prioridad 3")
+    pacientes.append({"Código": codigo, "Edad donante": edad_don, "DSA": dsa_valor, "Riesgo": riesgo, "Prioridad": prioridad})
+
+# --- GENERACIÓN OBLIGATORIA DE PDF AL FINAL ---
+if st.button("📄 Generar informe PDF"):
+    pdf = FPDF()
+    pdf.add_page()
+
+    if os.path.exists(logo_path):
+        pdf.image(logo_path, x=85, w=40)
+
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(200, 10, "Informe Evaluación HLA", ln=True, align='C')
+    pdf.set_font("Arial", '', 12)
+    pdf.ln(10)
+
+    for p in pacientes:
+        pdf.multi_cell(0, 10, f"Código: {p['Código']}\nEdad donante: {p['Edad donante']}\nDSA (MFI): {p['DSA']}\nRiesgo estimado: {p['Riesgo']}\n{p['Prioridad']}\n")
+        pdf.ln(5)
+
+    pdf.image(pdf_tabla_path, x=10, w=190)
+    path = f"/tmp/informe_hla_pacientes.pdf"
+    pdf.output(path)
+    with open(path, "rb") as f:
+        b64 = base64.b64encode(f.read()).decode()
+        href = f'<a href="data:application/octet-stream;base64,{b64}" download="informe_hla_pacientes.pdf">📥 Descargar PDF</a>'
+        st.markdown(href, unsafe_allow_html=True)
