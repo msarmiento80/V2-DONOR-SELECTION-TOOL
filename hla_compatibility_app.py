@@ -124,7 +124,7 @@ pdf_tabla_path = f"/tmp/tabla_inmunogenetica.png"
 plt.savefig(pdf_tabla_path, bbox_inches='tight')
 plt.close()
 
-# --- PLACEHOLDER PARA LÓGICA DE MÚLTIPLES PACIENTES Y PDF OBLIGATORIO ---
+# --- FORMULARIO MULTIPACIENTE ---
 st.markdown("\n---\n")
 st.markdown("### 🧾 Evaluación de pacientes")
 
@@ -135,12 +135,62 @@ for i in range(num_pacientes):
     st.markdown(f"#### Paciente {i+1}")
     codigo = st.text_input(f"Código del paciente {i+1}", key=f"codigo_{i}")
     edad_don = st.number_input(f"Edad del donante (Paciente {i+1})", min_value=0, max_value=100, key=f"edad_{i}")
+    grupo_don = st.selectbox(f"Grupo sanguíneo donante (Paciente {i+1})", ["A", "B", "AB", "O"], key=f"grupo_don_{i}")
+    grupo_rec = st.selectbox(f"Grupo sanguíneo receptor (Paciente {i+1})", ["A", "B", "AB", "O"], key=f"grupo_rec_{i}")
+    sexo_don = st.selectbox(f"Sexo del donante (Paciente {i+1})", ["Masculino", "Femenino"], key=f"sexo_{i}")
+    hijos_don = st.checkbox(f"Donante con hijos (Paciente {i+1})", key=f"hijos_{i}")
     dsa_valor = st.number_input(f"Nivel de DSA (MFI) (Paciente {i+1})", min_value=0, key=f"dsa_{i}")
-    riesgo = "Alto" if dsa_valor > 5000 else ("Intermedio" if dsa_valor > 2000 else "Bajo")
-    prioridad = "Prioridad 1" if riesgo == "Bajo" and edad_don < 35 else ("Prioridad 2" if riesgo == "Intermedio" else "Prioridad 3")
-    pacientes.append({"Código": codigo, "Edad donante": edad_don, "DSA": dsa_valor, "Riesgo": riesgo, "Prioridad": prioridad})
 
-# --- GENERACIÓN OBLIGATORIA DE PDF AL FINAL ---
+    # HLA mismatches
+    dis_a = st.checkbox(f"HLA-A (Paciente {i+1})", key=f"a_{i}")
+    dis_b = st.checkbox(f"HLA-B (Paciente {i+1})", key=f"b_{i}")
+    dis_c = st.checkbox(f"HLA-C (Paciente {i+1})", key=f"c_{i}")
+    dis_drb1 = st.checkbox(f"HLA-DRB1 (Paciente {i+1})", key=f"drb1_{i}")
+    dis_dqb1 = st.checkbox(f"HLA-DQB1 (Paciente {i+1})", key=f"dqb1_{i}")
+    dpb1_no_perm = st.checkbox(f"HLA-DPB1 no permisivo (Paciente {i+1})", key=f"dpb1_{i}")
+    lider_tt = st.checkbox(f"Polimorfismo líder HLA-B T/T (Paciente {i+1})", key=f"lider_{i}")
+
+    riesgo_gvhd = "Bajo"
+    if dis_drb1 or dis_b or dpb1_no_perm or lider_tt or sum([dis_a, dis_b, dis_c, dis_drb1, dis_dqb1]) >= 2:
+        riesgo_gvhd = "Alto"
+    elif sum([dis_a, dis_b, dis_c, dis_drb1, dis_dqb1]) == 1:
+        riesgo_gvhd = "Intermedio"
+
+    riesgo_recaida = "Bajo" if riesgo_gvhd == "Bajo" else ("Intermedio" if edad_don < 40 else "Alto")
+    riesgo_prend = "Bajo"
+    if dsa_valor > 5000:
+        riesgo_prend = "Alto"
+    elif grupo_don != grupo_rec and edad_don > 45:
+        riesgo_prend = "Alto"
+    elif grupo_don != grupo_rec:
+        riesgo_prend = "Intermedio"
+
+    riesgo_dsa = "Negativo"
+    if dsa_valor > 2000:
+        riesgo_dsa = "Positivo (>2000 MFI)"
+
+    prioridad = ""
+    if dsa_valor > 5000:
+        prioridad = T("Prioridad 3: Donante subóptimo", "Priority 3: Suboptimal donor")
+    elif riesgo_gvhd == "Bajo" and edad_don <= 35 and not lider_tt and grupo_don == grupo_rec and sexo_don == "Masculino":
+        prioridad = T("Prioridad 1: Donante ideal", "Priority 1: Optimal donor")
+    elif riesgo_gvhd == "Intermedio" or edad_don <= 50:
+        prioridad = T("Prioridad 2: Donante aceptable", "Priority 2: Acceptable donor")
+    else:
+        prioridad = T("Prioridad 3: Donante subóptimo", "Priority 3: Suboptimal donor")
+
+    pacientes.append({
+        "Código": codigo,
+        "Edad donante": edad_don,
+        "DSA": dsa_valor,
+        "Riesgo GVHD": riesgo_gvhd,
+        "Riesgo recaída": riesgo_recaida,
+        "Riesgo prendimiento": riesgo_prend,
+        "Compatibilidad ABO": "Compatible" if grupo_don == grupo_rec else "Incompatible",
+        "Prioridad": prioridad
+    })
+
+# --- GENERACIÓN DE PDF ---
 if st.button("📄 Generar informe PDF"):
     pdf = FPDF()
     pdf.add_page()
@@ -154,7 +204,7 @@ if st.button("📄 Generar informe PDF"):
     pdf.ln(10)
 
     for p in pacientes:
-        pdf.multi_cell(0, 10, f"Código: {p['Código']}\nEdad donante: {p['Edad donante']}\nDSA (MFI): {p['DSA']}\nRiesgo estimado: {p['Riesgo']}\n{p['Prioridad']}\n")
+        pdf.multi_cell(0, 10, f"Código: {p['Código']}\nEdad donante: {p['Edad donante']}\nDSA (MFI): {p['DSA']}\nRiesgo GVHD: {p['Riesgo GVHD']}\nRiesgo de recaída: {p['Riesgo recaída']}\nRiesgo de prendimiento: {p['Riesgo prendimiento']}\nCompatibilidad ABO: {p['Compatibilidad ABO']}\n{p['Prioridad']}\n")
         pdf.ln(5)
 
     pdf.image(pdf_tabla_path, x=10, w=190)
