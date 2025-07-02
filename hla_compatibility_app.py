@@ -199,3 +199,4 @@ if st.button("📄 Generar informe PDF"):
         b64 = base64.b64encode(f.read()).decode()
         href = f'<a href="data:application/octet-stream;base64,{b64}" download="informe_hla_pacientes.pdf">📥 Descargar PDF</a>'
         st.markdown(href, unsafe_allow_html=True)
+        
