@@ -3,6 +3,7 @@ import pandas as pd
 from fpdf import FPDF
 import base64
 import datetime
+fecha = datetime.date.today().strftime("%Y-%m-%d")
 import os
 
 # --- CONFIGURACIÓN INICIAL ---
